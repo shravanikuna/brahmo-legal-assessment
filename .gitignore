@@ -22,7 +22,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-.env*
+.env
+.env.local
+.env.*.local
+
+# BUT allow .env.example
+!.env.example
 
 # vercel
 .vercel

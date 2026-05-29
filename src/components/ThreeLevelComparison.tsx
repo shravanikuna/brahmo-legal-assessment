@@ -1,4 +1,14 @@
+// src/components/ThreeLevelComparison.tsx
+
 import { useState, useRef, useEffect } from 'react'
+import { marked } from 'marked'  // Add this import
+
+// Configure marked for safe rendering
+marked.setOptions({
+    breaks: true,
+    gfm: true,
+    // sanitize: false
+})
 
 interface LevelData {
     label: string
@@ -22,11 +32,35 @@ interface ThreeLevelComparisonProps {
     onCopy?: (text: string) => void
 }
 
+// Helper function to convert markdown to HTML
+function markdownToHtml(markdown: string): string {
+    if (!markdown) return ''
+
+    // First, handle the existing section highlights (they are already HTML)
+    // We need to protect them from being processed by marked
+    let processed = markdown
+
+    // Convert markdown to HTML
+    try {
+        const rawHtml = marked.parse(processed) as string
+
+        // Clean up any double-escaped HTML
+        return rawHtml
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+    } catch (error) {
+        console.error('Markdown parsing error:', error)
+        return processed.replace(/\n/g, '<br/>')
+    }
+}
+
 function LoadingSkeleton() {
     return (
         <div className="space-y-2">
             {[90, 70, 85, 60, 75, 50, 80].map((w, i) => (
-                <div key={i} className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 0.1}s` }} />
+                <div key={i} className="h-3 bg-gray-100 rounded animate-pulse"
+                    style={{ width: `${w}%`, animationDelay: `${i * 0.1}s` }} />
             ))}
         </div>
     )
@@ -35,9 +69,9 @@ function LoadingSkeleton() {
 // Score bar colors based on value
 const getScoreBarColor = (val: number, max: number) => {
     const percentage = (val / max) * 100
-    if (percentage >= 80) return 'rgb(245, 158, 11)'  // Green - excellent
-    if (percentage >= 60) return 'rgb(6, 182, 212)'  // Amber - good
-    return 'rgb(148, 163, 184)'  // Red - needs improvement
+    if (percentage >= 80) return '#f59e0b'  // Gold - excellent
+    if (percentage >= 60) return '#06b6d4'  // Cyan - good
+    return '#94a3b8'  // Gray - needs improvement
 }
 
 export function ThreeLevelComparison({ levels, onCopy }: ThreeLevelComparisonProps) {
@@ -45,6 +79,11 @@ export function ThreeLevelComparison({ levels, onCopy }: ThreeLevelComparisonPro
 
     const renderLevel = (level: LevelData, key: string) => {
         const isExpanded = expandedLevel === key
+
+        // Convert markdown to HTML if the content isn't already HTML
+        const displayHtml = level.html && !level.html.includes('mark')
+            ? markdownToHtml(level.content || '')
+            : level.html
 
         return (
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col h-full shadow-sm hover:shadow-md transition-shadow">
@@ -60,7 +99,7 @@ export function ThreeLevelComparison({ levels, onCopy }: ThreeLevelComparisonPro
                         </div>
                         <button
                             onClick={() => setExpandedLevel(isExpanded ? null : key)}
-                            className="text-gray-400 hover:text-gray-600 transition"
+                            className="text-gray-400 hover:text-gray-600 transition w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100"
                         >
                             {isExpanded ? '−' : '+'}
                         </button>
@@ -81,9 +120,7 @@ export function ThreeLevelComparison({ levels, onCopy }: ThreeLevelComparisonPro
                 </div>
 
                 {/* Content - with scrollbar */}
-                <div
-                    className={`flex-1 p-4 transition-all duration-300 ${isExpanded ? 'max-h-[600px]' : 'max-h-[400px]'}`}
-                >
+                <div className={`flex-1 p-4 transition-all duration-300 ${isExpanded ? 'max-h-[600px]' : 'max-h-[400px]'}`}>
                     {level.loading ? (
                         <LoadingSkeleton />
                     ) : level.error ? (
@@ -92,7 +129,7 @@ export function ThreeLevelComparison({ levels, onCopy }: ThreeLevelComparisonPro
                         <div
                             className="text-sm text-gray-600 leading-relaxed font-serif legal-document overflow-y-auto pr-2 custom-scrollbar"
                             style={{ maxHeight: isExpanded ? '520px' : '320px' }}
-                            dangerouslySetInnerHTML={{ __html: level.html }}
+                            dangerouslySetInnerHTML={{ __html: displayHtml }}
                         />
                     ) : (
                         <div className="text-gray-400 text-sm text-center py-8 italic">
